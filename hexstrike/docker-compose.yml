@@ -17,8 +17,27 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8888:8888"
+    # hexstrike_server.py does NOT write to /data on its own - by default
+    # every tool writes its output under /tmp inside the container, which is
+    # gone on the next restart. This mount only helps for tool calls where
+    # the AI agent explicitly passes an output_dir under /data (several
+    # tools, e.g. autorecon, prowler, foremost, accept that parameter) - see
+    # ../README.md "Persisting data" for details. Safe to remove if unused.
     volumes:
       - ${HOME}/.local/share/hexstrike-data:/data
+      # Some CLI tools keep their own API-key config under $HOME and are NOT
+      # persisted by the mount above (e.g. `shodan init <key>` writes to
+      # /root/.shodan, `censys config` to /root/.config/censys). Uncomment
+      # and create the host-side dirs first if you want those to survive a
+      # container recreate:
+      # - ${HOME}/.local/share/hexstrike-data/shodan:/root/.shodan
+      # - ${HOME}/.local/share/hexstrike-data/censys:/root/.config/censys
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8888/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
     # Uncomment if a scan target needs raw sockets (e.g. certain nmap scan types):
     # cap_add:
     #   - NET_RAW
