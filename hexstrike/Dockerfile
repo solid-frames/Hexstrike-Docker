@@ -10,7 +10,17 @@
 # scanning tools). The lightweight MCP bridge (hexstrike_mcp.py) that Claude
 # Desktop launches stays on the host - see ../README.md.
 
-FROM docker.io/kalilinux/kali-rolling
+FROM docker.io/kalilinux/kali-rolling:latest
+
+LABEL org.opencontainers.image.title="hexstrike-server" \
+      org.opencontainers.image.description="HexStrike AI MCP server + its CLI tool dependencies, on Kali rolling" \
+      org.opencontainers.image.source="https://github.com/0x4m4/hexstrike-ai" \
+      org.opencontainers.image.documentation="https://github.com/solid-frames/hexstrike-docker"
+
+# bash with pipefail so a failing command on the left side of a `curl | sh`
+# (or similar) pipe actually fails the RUN, instead of being masked by the
+# right-hand command's exit status.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_BREAK_SYSTEM_PACKAGES=1 \
@@ -30,6 +40,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # checksec strings/objdump (binutils) and most of the rest of the list.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv git curl wget unzip build-essential \
+        tini \
         kali-tools-information-gathering \
         kali-tools-vulnerability \
         kali-tools-web \
@@ -50,7 +61,7 @@ RUN RS_VER="$(curl -sSL https://api.github.com/repos/bee-san/RustScan/releases/l
     curl -fsSL -o /tmp/rustscan.deb.zip \
         "https://github.com/bee-san/RustScan/releases/download/${RS_VER}/rustscan.deb.zip" \
     && unzip -o /tmp/rustscan.deb.zip -d /tmp >/dev/null \
-    && (dpkg -i /tmp/rustscan*.deb || apt-get -f install -y) \
+    && (dpkg -i /tmp/rustscan*.deb || apt-get -f install -y --no-install-recommends) \
     && rm -f /tmp/rustscan.deb.zip /tmp/rustscan*.deb \
     || echo "WARN: rustscan uebersprungen"
 
@@ -60,6 +71,9 @@ RUN curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/
 
 # Go-based recon/web tools not always current in apt. Each "go install" is tolerant
 # (|| echo WARN) so a single broken/moved module can no longer abort the whole layer.
+# NOTE: ffuf is already installed via apt above - this go-installs a newer
+# version on top (go bins land in /usr/local/bin, which comes before apt's
+# /usr/bin/ffuf in PATH). Intentional, not a leftover duplicate.
 RUN apt-get update && apt-get install -y --no-install-recommends golang-go \
     && export GOPATH=/root/go GO111MODULE=on PATH="/root/go/bin:$PATH" \
     && for pkg in \
@@ -260,5 +274,13 @@ RUN [ -x /opt/hexstrike-venv/bin/pwn ] && ln -sf /opt/hexstrike-venv/bin/pwn /us
     || echo "WARN: pwntools-Symlink uebersprungen"
 
 EXPOSE 8888
-ENTRYPOINT ["/opt/hexstrike-venv/bin/python3", "hexstrike_server.py"]
+
+# hexstrike_server.py spawns many short-lived scanner subprocesses; running it
+# directly as PID 1 means it has to reap them itself (and signals like SIGTERM
+# from `podman stop`/`docker stop` aren't forwarded the way an init process
+# would). tini as PID 1 fixes both.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["curl", "-fsS", "http://127.0.0.1:8888/health"]
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/opt/hexstrike-venv/bin/python3", "hexstrike_server.py"]
 CMD ["--port", "8888"]
