@@ -273,6 +273,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-dev lib
 RUN [ -x /opt/hexstrike-venv/bin/pwn ] && ln -sf /opt/hexstrike-venv/bin/pwn /usr/local/bin/pwntools \
     || echo "WARN: pwntools-Symlink uebersprungen"
 
+# Just a build-complete banner (purely cosmetic) - grep the log above for
+# "WARN:" to see which optional tools got skipped.
+RUN printf '\033[1;31m\n'; \
+    printf '  ██╗  ██╗███████╗██╗  ██╗███████╗████████╗██████╗ ██╗██╗  ██╗███████╗\n'; \
+    printf '  ██║  ██║██╔════╝╚██╗██╔╝██╔════╝╚══██╔══╝██╔══██╗██║██║ ██╔╝██╔════╝\n'; \
+    printf '  ███████║█████╗   ╚███╔╝ ███████╗   ██║   ██████╔╝██║█████╔╝ █████╗  \n'; \
+    printf '  ██╔══██║██╔══╝   ██╔██╗ ╚════██║   ██║   ██╔══██╗██║██╔═██╗ ██╔══╝  \n'; \
+    printf '  ██║  ██║███████╗██╔╝ ██╗███████║   ██║   ██║  ██║██║██║  ██╗███████╗\n'; \
+    printf '  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝\033[0m\n'; \
+    printf '\033[2m  server image build complete - fire up with podman/docker compose\033[0m\n\n'
+
 EXPOSE 8888
 
 # hexstrike_server.py spawns many short-lived scanner subprocesses; running it
