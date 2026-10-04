@@ -27,6 +27,7 @@ This stack gives an AI agent the ability to run real offensive-security tooling 
 |---|---|
 | `hexstrike/Dockerfile` | Builds the `hexstrike-server` image on `kalilinux/kali-rolling`: installs the bulk of the tool list via Kali metapackages, patches in tools that are missing/outdated in those metapackages (rustscan, trivy, Go-based recon tools, x8, pwninit, kube-bench, terrascan, …), adds symlinks/stub scripts so HexStrike's health check finds binaries under the names it expects, then installs HexStrike AI itself into a venv. |
 | `hexstrike/hexstrike-server.container` | Podman Quadlet unit for running the built image as a systemd user service on Fedora/Silverblue (binds to `127.0.0.1:8888` only). |
+| `hexstrike/docker-compose.yml` | `docker compose` / `podman-compose` alternative to the Quadlet unit, for anyone who prefers that over systemd. Same port binding and volume. |
 | `hexstrike/setup-bridge.sh` | Sets up the host-side MCP bridge: clones `hexstrike-ai` (for `hexstrike_mcp.py`) and creates a dedicated virtualenv for it, separate from the container's tool-heavy environment. |
 | `hexstrike/Claude-desktop-config.snippet` | `mcpServers` JSON snippet for `claude_desktop_config.json` (native install). |
 | `hexstrike/Claude-desktop-config.flatpak.snippet` | Same, but via `flatpak-spawn --host` for a flatpak-installed Claude Desktop. |
@@ -35,18 +36,26 @@ This stack gives an AI agent the ability to run real offensive-security tooling 
 
 ### 1. Build and run the server container
 
+Either as a systemd user service via Podman Quadlet:
+
 ```bash
 cd hexstrike
 podman build -t localhost/hexstrike-server:latest .
 
-# Quadlet (systemd) install:
 mkdir -p ~/.config/containers/systemd
 cp hexstrike-server.container ~/.config/containers/systemd/
 systemctl --user daemon-reload
 systemctl --user enable --now hexstrike-server.service
 ```
 
-The container exposes port `8888`, bound to `127.0.0.1` only, and persists data under `~/.local/share/hexstrike-data`.
+...or with `docker compose` / `podman-compose`:
+
+```bash
+cd hexstrike
+docker compose up -d --build
+```
+
+Either way, the container exposes port `8888`, bound to `127.0.0.1` only, and persists data under `~/.local/share/hexstrike-data`. For scan types that need raw sockets (e.g. certain nmap scans), uncomment the `NET_RAW`/`NET_ADMIN` capability lines in `hexstrike-server.container` or `docker-compose.yml`.
 
 ### 2. Set up the host-side MCP bridge
 
