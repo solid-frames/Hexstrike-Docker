@@ -38,7 +38,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # hydra john hashcat medusa crackmapexec/netexec radare2 binwalk foremost
 # steghide exiftool amass dnsenum theharvester responder enum4linux-ng
 # checksec strings/objdump (binutils) and most of the rest of the list.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN printf '\033[1;36m[*] Step 1/13: Kali metapackages (recon/vuln/web/passwords/forensics/re)\033[0m\n' \
+    && apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv git curl wget unzip build-essential \
         tini \
         kali-tools-information-gathering \
@@ -57,7 +58,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # als fehlend auftauchte, falls das Release inzwischen weg ist) - jetzt wie
 # kube-bench dynamisch ueber die GitHub-API aufgeloest, tolerant falls es
 # schief geht.
-RUN RS_VER="$(curl -sSL https://api.github.com/repos/bee-san/RustScan/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
+RUN printf '\033[1;36m[*] Step 2/13: rustscan (GitHub release .deb)\033[0m\n'; \
+    RS_VER="$(curl -sSL https://api.github.com/repos/bee-san/RustScan/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
     curl -fsSL -o /tmp/rustscan.deb.zip \
         "https://github.com/bee-san/RustScan/releases/download/${RS_VER}/rustscan.deb.zip" \
     && unzip -o /tmp/rustscan.deb.zip -d /tmp >/dev/null \
@@ -66,7 +68,8 @@ RUN RS_VER="$(curl -sSL https://api.github.com/repos/bee-san/RustScan/releases/l
     || echo "WARN: rustscan uebersprungen"
 
 # trivy: official install script (apt repo pinning is finicky, this is more stable)
-RUN curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+RUN printf '\033[1;36m[*] Step 3/13: trivy (official install script)\033[0m\n' \
+    && curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
         | sh -s -- -b /usr/local/bin
 
 # Go-based recon/web tools not always current in apt. Each "go install" is tolerant
@@ -74,7 +77,8 @@ RUN curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/
 # NOTE: ffuf is already installed via apt above - this go-installs a newer
 # version on top (go bins land in /usr/local/bin, which comes before apt's
 # /usr/bin/ffuf in PATH). Intentional, not a leftover duplicate.
-RUN apt-get update && apt-get install -y --no-install-recommends golang-go \
+RUN printf '\033[1;36m[*] Step 4/13: Go-based recon/web tools (subfinder, nuclei, httpx, ...)\033[0m\n' \
+    && apt-get update && apt-get install -y --no-install-recommends golang-go \
     && export GOPATH=/root/go GO111MODULE=on PATH="/root/go/bin:$PATH" \
     && for pkg in \
          github.com/projectdiscovery/subfinder/v2/cmd/subfinder \
@@ -97,7 +101,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends golang-go \
 # alte Go-Modulpfad existiert nicht mehr ("does not contain package"). Statt eine
 # ganze Rust-Toolchain zu ziehen nutzen wir das offizielle statische Linux-Release
 # (v4.3.0). Fehlschlag tolerant, damit ein Umbenennen des Assets den Build nicht killt.
-RUN curl -fsSL -o /tmp/x8.gz \
+RUN printf '\033[1;36m[*] Step 5/13: x8 (hidden-parameter discovery)\033[0m\n'; \
+    curl -fsSL -o /tmp/x8.gz \
         "https://github.com/Sh1Yo/x8/releases/download/v4.3.0/x86_64-linux-x8.gz" \
     && gunzip -c /tmp/x8.gz > /usr/local/bin/x8 \
     && chmod +x /usr/local/bin/x8 \
@@ -110,7 +115,8 @@ RUN curl -fsSL -o /tmp/x8.gz \
 # -reverse-engineering/-passwords sie eigentlich abdecken sollten (Metapaket-
 # Inhalt driftet mit Kali-Updates). Hier explizit + einzeln mit Fallback, damit
 # ein einzelner unbekannter Paketname nicht den ganzen Layer killt.
-RUN apt-get update; \
+RUN printf '\033[1;36m[*] Step 6/13: tools missing from the Kali metapackages (amass, exiftool, ...)\033[0m\n'; \
+    apt-get update; \
     for pkg in amass libimage-exiftool-perl checksec exploitdb responder \
                arp-scan ffuf steghide testdisk bulk-extractor xxd aircrack-ng \
                kismet httpie gobuster enum4linux-ng photorec \
@@ -121,7 +127,8 @@ RUN apt-get update; \
     rm -rf /var/lib/apt/lists/*
 
 # --- Python-based secondary tools + fixes for tools that pipx couldn't install ---
-RUN apt-get update; apt-get install -y --no-install-recommends netexec python3-dev libssl-dev libffi-dev pkg-config || true; rm -rf /var/lib/apt/lists/*; \
+RUN printf '\033[1;36m[*] Step 7/13: Python-based secondary tools (pipx: arjun, volatility3, ...)\033[0m\n'; \
+    apt-get update; apt-get install -y --no-install-recommends netexec python3-dev libssl-dev libffi-dev pkg-config || true; rm -rf /var/lib/apt/lists/*; \
     pip3 install --no-cache-dir pipx; \
     pip3 install --no-cache-dir hashpumpy || echo "WARN: hashpumpy fehlgeschlagen (hashpump-Wrapper dann ohne Funktion)"; \
     for pkg in arjun wafw00f volatility3 prowler scoutsuite kube-hunter crackmapexec ropper; do \
@@ -149,7 +156,8 @@ RUN apt-get update; apt-get install -y --no-install-recommends netexec python3-d
 # readline-ext native extension, hence libreadline-dev + libncurses-dev.
 # one_gadget installiert das Kommando "one_gadget" (Unterstrich), der
 # Health-Check erwartet "one-gadget" (Bindstrich) - Symlink gleicht das an.
-RUN apt-get update && apt-get install -y --no-install-recommends ruby ruby-dev libreadline-dev libncurses-dev; \
+RUN printf '\033[1;36m[*] Step 8/13: Ruby gems (evil-winrm, one_gadget, zsteg)\033[0m\n'; \
+    apt-get update && apt-get install -y --no-install-recommends ruby ruby-dev libreadline-dev libncurses-dev; \
     gem install evil-winrm; \
     gem install one_gadget || echo "WARN: one_gadget fehlgeschlagen"; \
     gem install zsteg || echo "WARN: zsteg fehlgeschlagen"; \
@@ -163,7 +171,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ruby ruby-dev l
 # pwninit liefert nur ein rohes Release-Binary (Asset-Name exakt "pwninit",
 # Tag ohne "v"-Praefix). Vorher wurde ein nicht existierender musl-Tarball
 # erwartet -> 404. Jetzt direkt das Binary.
-RUN PI_VER="$(curl -sSL https://api.github.com/repos/io12/pwninit/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
+RUN printf '\033[1;36m[*] Step 9/13: pwninit (CTF setup helper)\033[0m\n'; \
+    PI_VER="$(curl -sSL https://api.github.com/repos/io12/pwninit/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
     curl -fsSL -o /usr/local/bin/pwninit \
         "https://github.com/io12/pwninit/releases/download/${PI_VER}/pwninit" \
     && chmod +x /usr/local/bin/pwninit \
@@ -171,7 +180,8 @@ RUN PI_VER="$(curl -sSL https://api.github.com/repos/io12/pwninit/releases/lates
 
 # kube-bench + docker-bench-security (Kubernetes/Docker CIS-Checks, sekundaer).
 # Asset-Name enthaelt die Version -> dynamisch aufloesen; Fehlschlag tolerant.
-RUN KB_VER="$(curl -sSL https://api.github.com/repos/aquasecurity/kube-bench/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
+RUN printf '\033[1;36m[*] Step 10/13: kube-bench + docker-bench-security (CIS checks)\033[0m\n'; \
+    KB_VER="$(curl -sSL https://api.github.com/repos/aquasecurity/kube-bench/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
     curl -fsSL -o /tmp/kube-bench.tar.gz "https://github.com/aquasecurity/kube-bench/releases/download/v${KB_VER}/kube-bench_${KB_VER}_linux_amd64.tar.gz" \
       && tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin kube-bench \
       && rm -f /tmp/kube-bench.tar.gz \
@@ -183,7 +193,8 @@ RUN KB_VER="$(curl -sSL https://api.github.com/repos/aquasecurity/kube-bench/rel
     true
 
 # terrascan (IaC-Scan) + clairctl (Clair-CLI) als Go-Releases, dynamisch + tolerant.
-RUN TS_VER="$(curl -sSL https://api.github.com/repos/tenable/terrascan/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
+RUN printf '\033[1;36m[*] Step 11/13: terrascan (IaC) + clairctl (Clair CLI)\033[0m\n'; \
+    TS_VER="$(curl -sSL https://api.github.com/repos/tenable/terrascan/releases/latest | grep -oP '\"tag_name\":\s*\"v?\K[^\"]+')"; \
     curl -fsSL -o /tmp/terrascan.tar.gz \
         "https://github.com/tenable/terrascan/releases/download/v${TS_VER}/terrascan_${TS_VER}_Linux_x86_64.tar.gz" \
     && tar -xzf /tmp/terrascan.tar.gz -C /usr/local/bin terrascan \
@@ -202,7 +213,7 @@ RUN TS_VER="$(curl -sSL https://api.github.com/repos/tenable/terrascan/releases/
 # with different names (msfconsole not metasploit, vol not volatility, etc.) or have
 # no CLI binary at all (sleuthkit, hashcat-utils, angr, libc-database are libraries/
 # meta-packages). This section bridges the gap with symlinks and wrapper scripts.
-RUN \
+RUN printf '\033[1;36m[*] Step 12/13: symlinks/stubs for mismatched tool names\033[0m\n'; \
     [ -x /usr/bin/msfconsole ] && ln -sf /usr/bin/msfconsole /usr/local/bin/metasploit; \
     [ -x /usr/bin/searchsploit ] && ln -sf /usr/bin/searchsploit /usr/local/bin/exploit-db; \
     [ -x /usr/bin/shodan ] && ln -sf /usr/bin/shodan /usr/local/bin/shodan-cli; \
@@ -256,7 +267,8 @@ WORKDIR /opt/hexstrike-ai
 # alte Quellcode-Releases baut (pyvex-Build + fragiler Nachlade-Download).
 # 9.2.120 ist die Version, die pips Resolver ohne Pin selbst waehlte, und die
 # gesamte Familie (archinfo/claripy/cle/pyvex 9.2.120) hat fertige Wheels.
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev libffi-dev libssl-dev pkg-config \
+RUN printf '\033[1;36m[*] Step 13/13: HexStrike AI itself (venv + requirements + angr)\033[0m\n' \
+    && apt-get update && apt-get install -y --no-install-recommends python3-dev libffi-dev libssl-dev pkg-config \
     && git clone https://github.com/0x4m4/hexstrike-ai.git . \
     && python3 -m venv --system-site-packages /opt/hexstrike-venv \
     && /opt/hexstrike-venv/bin/pip install --no-cache-dir --retries 5 -r requirements.txt "angr==9.2.120" \
@@ -272,6 +284,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-dev lib
 # nicht -> der dortige Guard griff nie. Eigener Mini-Layer = venv bleibt gecached.
 RUN [ -x /opt/hexstrike-venv/bin/pwn ] && ln -sf /opt/hexstrike-venv/bin/pwn /usr/local/bin/pwntools \
     || echo "WARN: pwntools-Symlink uebersprungen"
+
+# Just a build-complete banner (purely cosmetic) - grep the log above for
+# "WARN:" to see which optional tools got skipped.
+RUN printf '\033[1;31m\n'; \
+    printf '  ██╗  ██╗███████╗██╗  ██╗███████╗████████╗██████╗ ██╗██╗  ██╗███████╗\n'; \
+    printf '  ██║  ██║██╔════╝╚██╗██╔╝██╔════╝╚══██╔══╝██╔══██╗██║██║ ██╔╝██╔════╝\n'; \
+    printf '  ███████║█████╗   ╚███╔╝ ███████╗   ██║   ██████╔╝██║█████╔╝ █████╗  \n'; \
+    printf '  ██╔══██║██╔══╝   ██╔██╗ ╚════██║   ██║   ██╔══██╗██║██╔═██╗ ██╔══╝  \n'; \
+    printf '  ██║  ██║███████╗██╔╝ ██╗███████║   ██║   ██║  ██║██║██║  ██╗███████╗\n'; \
+    printf '  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝\033[0m\n'; \
+    printf '\033[2m  server image build complete - fire up with podman/docker compose\033[0m\n\n'
 
 EXPOSE 8888
 
