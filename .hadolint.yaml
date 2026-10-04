@@ -1,0 +1,15 @@
+# hadolint config - see .github/workflows/lint.yml
+#
+# This project deliberately always installs the latest version of every
+# tool (apt, pip, pipx, gem, go install, GitHub releases) rather than
+# pinning - so the rules that just enforce pinning are intentionally off.
+# Everything else (quoting, shellcheck-in-RUN, etc.) stays on.
+ignored:
+  - DL3007 # Pin FROM to a release tag instead of :latest/rolling
+  - DL3008 # Pin versions in apt-get install
+  - DL3013 # Pin versions in pip install
+  - DL3018 # Pin versions in apk add (unused here, kept for completeness)
+  - DL3028 # Pin versions in gem install
+  - DL3062 # Pin versions in go install
+  - DL3059 # Multiple consecutive RUN instructions (each RUN here is its own
+           #   apt-get update+install unit on purpose, see Dockerfile comments)

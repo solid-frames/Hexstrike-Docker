@@ -17,7 +17,20 @@ After=network-online.target
 Image=localhost/hexstrike-server:latest
 ContainerName=hexstrike-server
 PublishPort=127.0.0.1:8888:8888
+# hexstrike_server.py does NOT write to /data on its own - by default every
+# tool writes its output under /tmp inside the container, which is gone on
+# the next restart. This mount only helps for tool calls where the AI agent
+# explicitly passes an output_dir under /data (several tools, e.g. autorecon,
+# prowler, foremost, accept that parameter) - see ../README.md "Persisting
+# data" for details. Safe to remove if you don't use it.
 Volume=%h/.local/share/hexstrike-data:/data:Z
+# Some CLI tools keep their own API-key config under $HOME and are NOT
+# persisted by the mount above (e.g. `shodan init <key>` writes to
+# /root/.shodan, `censys config` to /root/.config/censys). Uncomment and
+# create the host-side files/dirs first if you want those to survive a
+# container recreate:
+# Volume=%h/.local/share/hexstrike-data/shodan:/root/.shodan:Z
+# Volume=%h/.local/share/hexstrike-data/censys:/root/.config/censys:Z
 # Uncomment if a scan target needs raw sockets (e.g. certain nmap scan types):
 # AddCapability=NET_RAW
 # AddCapability=NET_ADMIN

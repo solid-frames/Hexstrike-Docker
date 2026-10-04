@@ -55,7 +55,9 @@ cd hexstrike
 docker compose up -d --build
 ```
 
-Either way, the container exposes port `8888`, bound to `127.0.0.1` only, and persists data under `~/.local/share/hexstrike-data`. For scan types that need raw sockets (e.g. certain nmap scans), uncomment the `NET_RAW`/`NET_ADMIN` capability lines in `hexstrike-server.container` or `docker-compose.yml`.
+Either way, the container exposes port `8888`, bound to `127.0.0.1` only. For scan types that need raw sockets (e.g. certain nmap scans), uncomment the `NET_RAW`/`NET_ADMIN` capability lines in `hexstrike-server.container` or `docker-compose.yml`.
+
+A built-in `HEALTHCHECK` polls `http://127.0.0.1:8888/health`; check it with `podman ps` / `docker ps` (or `docker compose ps`) once the container is up.
 
 ### 2. Set up the host-side MCP bridge
 
@@ -72,6 +74,12 @@ Merge the relevant snippet into your `claude_desktop_config.json`:
 
 - Native install → `Claude-desktop-config.snippet`
 - Flatpak install → `Claude-desktop-config.flatpak.snippet` (replace `<DEIN_USERNAME>` with your username)
+
+## Persisting data
+
+`hexstrike_server.py` does **not** write to the `/data` volume on its own — checked against the [upstream source](https://github.com/0x4m4/hexstrike-ai). By default, every tool writes its output under `/tmp` *inside the container*, which is gone the moment the container restarts or is recreated. The `/data` mount in `hexstrike-server.container`/`docker-compose.yml` only helps if you explicitly tell the AI agent to pass an `output_dir` under `/data` for the tools that accept one (e.g. `autorecon`, `prowler`, `foremost`) — it's not automatic. Remove the mount if you don't use it that way.
+
+**API keys** for tools like `shodan` and `censys` are configured through the tool's own CLI (`shodan init <key>`, `censys config`), which writes to `$HOME` inside the container (`/root/.shodan`, `/root/.config/censys`) — *not* to `/data`. That config is lost on every container recreate unless you bind-mount those paths too; both `hexstrike-server.container` and `docker-compose.yml` have commented-out examples for this.
 
 ## Notes
 

@@ -17,6 +17,7 @@ fi
 
 echo "==> Creating bridge-only virtualenv at $VENV_DIR"
 python3 -m venv "$VENV_DIR"
+# shellcheck disable=SC1091 # dynamically created above, not a static input file
 source "$VENV_DIR/bin/activate"
 
 # The bridge script only needs an MCP client lib + an HTTP client, but since
