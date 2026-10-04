@@ -1,0 +1,30 @@
+# Podman Quadlet unit - the systemd-native way to run rootless Podman
+# containers on Fedora/Silverblue (no rpm-ostree layering needed).
+#
+# Install: copy this file to ~/.config/containers/systemd/hexstrike-server.container
+# Then:    systemctl --user daemon-reload
+#          systemctl --user enable --now hexstrike-server.service
+#
+# The port is bound to 127.0.0.1 only - HexStrike can run active scans /
+# exploits, so it should never be reachable from your LAN, only from the
+# same machine where Claude Desktop's MCP bridge runs.
+
+[Unit]
+Description=HexStrike AI MCP server
+After=network-online.target
+
+[Container]
+Image=localhost/hexstrike-server:latest
+ContainerName=hexstrike-server
+PublishPort=127.0.0.1:8888:8888
+Volume=%h/.local/share/hexstrike-data:/data:Z
+# Uncomment if a scan target needs raw sockets (e.g. certain nmap scan types):
+# AddCapability=NET_RAW
+# AddCapability=NET_ADMIN
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

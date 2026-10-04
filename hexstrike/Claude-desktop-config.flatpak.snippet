@@ -1,0 +1,17 @@
+{
+  "_comment": "Nur verwenden, wenn Claude Desktop als FLATPAK installiert ist (flatpak list | grep -i claude liefert eine Zeile). Sonst claude_desktop_config.snippet.json nehmen. <DEIN_USERNAME> ersetzen. Die Flatpak muss Host-Zugriff duerfen (flatpak-spawn --host).",
+  "mcpServers": {
+    "hexstrike-ai": {
+      "command": "flatpak-spawn",
+      "args": [
+        "--host",
+        "/home/<DEIN_USERNAME>/.local/share/hexstrike-bridge-venv/bin/python3",
+        "/home/<DEIN_USERNAME>/.local/share/hexstrike-ai/hexstrike_mcp.py",
+        "--server",
+        "http://127.0.0.1:8888"
+      ],
+      "timeout": 300,
+      "disabled": false
+    }
+  }
+}

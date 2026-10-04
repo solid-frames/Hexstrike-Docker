@@ -1,0 +1,25 @@
+# Alternative to the Podman Quadlet unit (hexstrike-server.container) for
+# people who prefer `docker compose` / `podman-compose` over systemd.
+#
+# Usage:
+#   cd hexstrike
+#   docker compose up -d --build
+#
+# The port is bound to 127.0.0.1 only - HexStrike can run active scans /
+# exploits, so it should never be reachable from your LAN, only from the
+# same machine where Claude Desktop's MCP bridge runs.
+
+services:
+  hexstrike-server:
+    build: .
+    image: localhost/hexstrike-server:latest
+    container_name: hexstrike-server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8888"
+    volumes:
+      - ${HOME}/.local/share/hexstrike-data:/data
+    # Uncomment if a scan target needs raw sockets (e.g. certain nmap scan types):
+    # cap_add:
+    #   - NET_RAW
+    #   - NET_ADMIN
